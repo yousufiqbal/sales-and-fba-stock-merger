@@ -1,0 +1,234 @@
+(() => {
+  const businessReportInput = document.getElementById('businessReportInput');
+  const inventoryInput = document.getElementById('inventoryInput');
+  const businessReportStatus = document.getElementById('businessReportStatus');
+  const inventoryStatus = document.getElementById('inventoryStatus');
+  const mergeBtn = document.getElementById('mergeBtn');
+  const downloadBtn = document.getElementById('downloadBtn');
+  const errorMsg = document.getElementById('errorMsg');
+  const summaryMsg = document.getElementById('summaryMsg');
+  const resultBody = document.getElementById('resultBody');
+
+  let businessReportText = null;
+  let inventoryText = null;
+  let mergedRows = null;
+
+  function stripBom(text) {
+    if (text.charCodeAt(0) === 0xFEFF) return text.slice(1);
+    return text;
+  }
+
+  function parseCsv(text) {
+    const rows = [];
+    let row = [];
+    let field = '';
+    let inQuotes = false;
+    const s = stripBom(text);
+    for (let i = 0; i < s.length; i++) {
+      const c = s[i];
+      if (inQuotes) {
+        if (c === '"') {
+          if (s[i + 1] === '"') {
+            field += '"';
+            i++;
+          } else {
+            inQuotes = false;
+          }
+        } else {
+          field += c;
+        }
+      } else {
+        if (c === '"') {
+          inQuotes = true;
+        } else if (c === ',') {
+          row.push(field);
+          field = '';
+        } else if (c === '\r') {
+          // skip, handled by \n
+        } else if (c === '\n') {
+          row.push(field);
+          rows.push(row);
+          row = [];
+          field = '';
+        } else {
+          field += c;
+        }
+      }
+    }
+    if (field.length > 0 || row.length > 0) {
+      row.push(field);
+      rows.push(row);
+    }
+    return rows.filter(r => !(r.length === 1 && r[0] === ''));
+  }
+
+  function parseTsv(text) {
+    const s = stripBom(text);
+    return s.split(/\r?\n/)
+      .filter(line => line.length > 0)
+      .map(line => line.split('\t'));
+  }
+
+  function toHeaderMap(headerRow) {
+    const map = {};
+    headerRow.forEach((h, idx) => { map[h.trim()] = idx; });
+    return map;
+  }
+
+  function parseNumber(raw) {
+    if (raw === undefined || raw === null) return 0;
+    const cleaned = String(raw).replace(/[£$,]/g, '').trim();
+    const n = parseFloat(cleaned);
+    return isNaN(n) ? 0 : n;
+  }
+
+  function buildInventoryMap(rows) {
+    const headerMap = toHeaderMap(rows[0]);
+    const asinIdx = headerMap['asin'];
+    const fnskuIdx = headerMap['fulfillment-channel-sku'];
+    const conditionTypeIdx = headerMap['condition-type'];
+    const warehouseConditionIdx = headerMap['Warehouse-Condition-code'];
+    const qtyIdx = headerMap['Quantity Available'];
+
+    const map = new Map();
+    for (let i = 1; i < rows.length; i++) {
+      const r = rows[i];
+      if (!r || r.length <= asinIdx) continue;
+      if (r[conditionTypeIdx] !== 'NewItem') continue;
+      const asin = r[asinIdx];
+      if (!asin) continue;
+      const entry = map.get(asin) || { fnsku: r[fnskuIdx], stock: 0 };
+      if (r[warehouseConditionIdx] === 'SELLABLE') {
+        entry.stock += parseNumber(r[qtyIdx]);
+      }
+      if (!entry.fnsku) entry.fnsku = r[fnskuIdx];
+      map.set(asin, entry);
+    }
+    return map;
+  }
+
+  function mergeData(businessRows, inventoryMap) {
+    const headerMap = toHeaderMap(businessRows[0]);
+    const asinIdx = headerMap['(Child) ASIN'];
+    const titleIdx = headerMap['Title'];
+    const orderedIdx = headerMap['Units ordered'];
+
+    const results = [];
+    for (let i = 1; i < businessRows.length; i++) {
+      const r = businessRows[i];
+      if (!r || r.length <= asinIdx) continue;
+      const asin = r[asinIdx];
+      if (!asin) continue;
+      const title = r[titleIdx] || '';
+      const ordered = parseNumber(r[orderedIdx]);
+      const inv = inventoryMap.get(asin);
+      const fnsku = inv ? inv.fnsku : '';
+      const stock = inv ? inv.stock : 0;
+      const restock = ordered - stock;
+      results.push({ asin, fnsku, title, ordered, stock, restock });
+    }
+    return results;
+  }
+
+  function renderTable(rows) {
+    resultBody.innerHTML = '';
+    const fragment = document.createDocumentFragment();
+    rows.forEach(row => {
+      const tr = document.createElement('tr');
+
+      const cells = [row.asin, row.fnsku, row.title, row.ordered, row.stock, row.restock];
+      cells.forEach((val, idx) => {
+        const td = document.createElement('td');
+        td.textContent = val;
+        if (idx === 5) {
+          td.classList.add(row.restock > 0 ? 'restock-negative' : 'restock-positive');
+        }
+        tr.appendChild(td);
+      });
+
+      fragment.appendChild(tr);
+    });
+    resultBody.appendChild(fragment);
+  }
+
+  function csvEscape(value) {
+    const s = String(value);
+    if (/[",\n\r]/.test(s)) {
+      return '"' + s.replace(/"/g, '""') + '"';
+    }
+    return s;
+  }
+
+  function rowsToCsv(rows) {
+    const header = ['ASIN', 'FNSKU', 'Title', 'ordered', 'stock', 'Restock'];
+    const lines = [header.join(',')];
+    rows.forEach(row => {
+      lines.push([row.asin, row.fnsku, row.title, row.ordered, row.stock, row.restock]
+        .map(csvEscape)
+        .join(','));
+    });
+    return lines.join('\r\n');
+  }
+
+  function updateMergeButtonState() {
+    mergeBtn.disabled = !(businessReportText && inventoryText);
+  }
+
+  businessReportInput.addEventListener('change', () => {
+    const file = businessReportInput.files[0];
+    if (!file) return;
+    businessReportStatus.textContent = file.name;
+    file.text().then(text => {
+      businessReportText = text;
+      updateMergeButtonState();
+    });
+  });
+
+  inventoryInput.addEventListener('change', () => {
+    const file = inventoryInput.files[0];
+    if (!file) return;
+    inventoryStatus.textContent = file.name;
+    file.text().then(text => {
+      inventoryText = text;
+      updateMergeButtonState();
+    });
+  });
+
+  mergeBtn.addEventListener('click', () => {
+    errorMsg.textContent = '';
+    summaryMsg.textContent = '';
+    downloadBtn.disabled = true;
+    mergedRows = null;
+
+    try {
+      const businessRows = parseCsv(businessReportText);
+      const inventoryRows = parseTsv(inventoryText);
+
+      if (businessRows.length < 2) throw new Error('Business report appears empty or unreadable.');
+      if (inventoryRows.length < 2) throw new Error('Inventory file appears empty or unreadable.');
+
+      const inventoryMap = buildInventoryMap(inventoryRows);
+      mergedRows = mergeData(businessRows, inventoryMap);
+
+      renderTable(mergedRows);
+      summaryMsg.textContent = `${mergedRows.length} rows merged.`;
+      downloadBtn.disabled = mergedRows.length === 0;
+    } catch (e) {
+      errorMsg.textContent = e.message || 'Failed to merge files.';
+    }
+  });
+
+  downloadBtn.addEventListener('click', () => {
+    if (!mergedRows || mergedRows.length === 0) return;
+    const csv = rowsToCsv(mergedRows);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'restock.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+})();

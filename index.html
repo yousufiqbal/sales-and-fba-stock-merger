@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sales and FBA Stock Merger</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="container">
+  <h1>Sales and FBA Stock Merger</h1>
+  <p class="subtitle">Merge Amazon Business Report + FBA Inventory into a restock CSV</p>
+
+  <div class="upload-grid">
+    <div class="upload-card">
+      <label for="businessReportInput">Business Report (.csv)</label>
+      <input type="file" id="businessReportInput" accept=".csv">
+      <span class="file-status" id="businessReportStatus">No file selected</span>
+    </div>
+    <div class="upload-card">
+      <label for="inventoryInput">FBA Inventory (.txt)</label>
+      <input type="file" id="inventoryInput" accept=".txt">
+      <span class="file-status" id="inventoryStatus">No file selected</span>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button id="mergeBtn" disabled>Merge</button>
+    <button id="downloadBtn" disabled>Download CSV</button>
+  </div>
+
+  <p id="errorMsg" class="error"></p>
+  <p id="summaryMsg" class="summary"></p>
+
+  <div class="table-wrap">
+    <table id="resultTable">
+      <thead>
+        <tr>
+          <th>ASIN</th>
+          <th>FNSKU</th>
+          <th>Title</th>
+          <th>Ordered</th>
+          <th>Stock</th>
+          <th>Restock</th>
+        </tr>
+      </thead>
+      <tbody id="resultBody"></tbody>
+    </table>
+  </div>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
