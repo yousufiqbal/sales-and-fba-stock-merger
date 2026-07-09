@@ -24,6 +24,16 @@
     </div>
   </div>
 
+  <div class="column-picker" id="columnPicker">
+    <span class="column-picker-label">Columns (drag to reorder):</span>
+    <div class="col-chip" draggable="true" data-key="asin"><span class="col-drag-handle">⠿</span><label><input type="checkbox" class="col-toggle" value="asin" checked> ASIN</label></div>
+    <div class="col-chip" draggable="true" data-key="fnsku"><span class="col-drag-handle">⠿</span><label><input type="checkbox" class="col-toggle" value="fnsku" checked> FNSKU</label></div>
+    <div class="col-chip" draggable="true" data-key="title"><span class="col-drag-handle">⠿</span><label><input type="checkbox" class="col-toggle" value="title" checked> Title</label></div>
+    <div class="col-chip" draggable="true" data-key="ordered"><span class="col-drag-handle">⠿</span><label><input type="checkbox" class="col-toggle" value="ordered" checked> Ordered</label></div>
+    <div class="col-chip" draggable="true" data-key="stock"><span class="col-drag-handle">⠿</span><label><input type="checkbox" class="col-toggle" value="stock" checked> Stock</label></div>
+    <div class="col-chip" draggable="true" data-key="restock"><span class="col-drag-handle">⠿</span><label><input type="checkbox" class="col-toggle" value="restock" checked> Restock</label></div>
+  </div>
+
   <div class="actions">
     <button id="mergeBtn" disabled>Merge</button>
     <button id="downloadBtn" disabled>Download CSV</button>
@@ -35,14 +45,7 @@
   <div class="table-wrap">
     <table id="resultTable">
       <thead>
-        <tr>
-          <th>ASIN</th>
-          <th>FNSKU</th>
-          <th>Title</th>
-          <th>Ordered</th>
-          <th>Stock</th>
-          <th>Restock</th>
-        </tr>
+        <tr id="resultHeadRow"></tr>
       </thead>
       <tbody id="resultBody"></tbody>
     </table>

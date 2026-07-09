@@ -8,10 +8,85 @@
   const errorMsg = document.getElementById('errorMsg');
   const summaryMsg = document.getElementById('summaryMsg');
   const resultBody = document.getElementById('resultBody');
+  const resultHeadRow = document.getElementById('resultHeadRow');
+  const columnPicker = document.getElementById('columnPicker');
+
+  const COLUMN_LABELS = {
+    asin: 'ASIN',
+    fnsku: 'FNSKU',
+    title: 'Title',
+    ordered: 'Ordered',
+    stock: 'Stock',
+    restock: 'Restock'
+  };
 
   let businessReportText = null;
   let inventoryText = null;
   let mergedRows = null;
+
+  function getSelectedColumns() {
+    const chips = Array.from(columnPicker.querySelectorAll('.col-chip'));
+    return chips
+      .filter(chip => chip.querySelector('.col-toggle').checked)
+      .map(chip => chip.dataset.key);
+  }
+
+  function setupColumnDragDrop() {
+    let draggedChip = null;
+    let currentTarget = null;
+    let currentSide = null;
+
+    function clearIndicator() {
+      if (currentTarget) {
+        currentTarget.classList.remove('drag-over-left', 'drag-over-right');
+        currentTarget = null;
+        currentSide = null;
+      }
+    }
+
+    columnPicker.querySelectorAll('.col-chip').forEach(chip => {
+      chip.addEventListener('dragstart', () => {
+        draggedChip = chip;
+        chip.classList.add('dragging');
+      });
+
+      chip.addEventListener('dragend', () => {
+        chip.classList.remove('dragging');
+        clearIndicator();
+        draggedChip = null;
+        if (mergedRows) renderTable(mergedRows, getSelectedColumns());
+      });
+    });
+
+    columnPicker.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      const chip = e.target.closest('.col-chip');
+      if (!chip || chip === draggedChip) {
+        clearIndicator();
+        return;
+      }
+      const rect = chip.getBoundingClientRect();
+      const side = (e.clientX - rect.left) < rect.width / 2 ? 'left' : 'right';
+      if (chip === currentTarget && side === currentSide) return;
+      clearIndicator();
+      chip.classList.add(side === 'left' ? 'drag-over-left' : 'drag-over-right');
+      currentTarget = chip;
+      currentSide = side;
+    });
+
+    columnPicker.addEventListener('drop', (e) => {
+      e.preventDefault();
+      const chip = currentTarget;
+      const side = currentSide;
+      clearIndicator();
+      if (!draggedChip || !chip || chip === draggedChip) return;
+      if (side === 'left') {
+        chip.before(draggedChip);
+      } else {
+        chip.after(draggedChip);
+      }
+    });
+  }
 
   function stripBom(text) {
     if (text.charCodeAt(0) === 0xFEFF) return text.slice(1);
@@ -130,22 +205,26 @@
     return results;
   }
 
-  function renderTable(rows) {
+  function renderTable(rows, columns) {
+    resultHeadRow.innerHTML = '';
+    columns.forEach(key => {
+      const th = document.createElement('th');
+      th.textContent = COLUMN_LABELS[key];
+      resultHeadRow.appendChild(th);
+    });
+
     resultBody.innerHTML = '';
     const fragment = document.createDocumentFragment();
     rows.forEach(row => {
       const tr = document.createElement('tr');
-
-      const cells = [row.asin, row.fnsku, row.title, row.ordered, row.stock, row.restock];
-      cells.forEach((val, idx) => {
+      columns.forEach(key => {
         const td = document.createElement('td');
-        td.textContent = val;
-        if (idx === 5) {
+        td.textContent = row[key];
+        if (key === 'restock') {
           td.classList.add(row.restock > 0 ? 'restock-negative' : 'restock-positive');
         }
         tr.appendChild(td);
       });
-
       fragment.appendChild(tr);
     });
     resultBody.appendChild(fragment);
@@ -159,13 +238,11 @@
     return s;
   }
 
-  function rowsToCsv(rows) {
-    const header = ['ASIN', 'FNSKU', 'Title', 'ordered', 'stock', 'Restock'];
+  function rowsToCsv(rows, columns) {
+    const header = columns.map(key => COLUMN_LABELS[key]);
     const lines = [header.join(',')];
     rows.forEach(row => {
-      lines.push([row.asin, row.fnsku, row.title, row.ordered, row.stock, row.restock]
-        .map(csvEscape)
-        .join(','));
+      lines.push(columns.map(key => csvEscape(row[key])).join(','));
     });
     return lines.join('\r\n');
   }
@@ -210,7 +287,7 @@
       const inventoryMap = buildInventoryMap(inventoryRows);
       mergedRows = mergeData(businessRows, inventoryMap);
 
-      renderTable(mergedRows);
+      renderTable(mergedRows, getSelectedColumns());
       summaryMsg.textContent = `${mergedRows.length} rows merged.`;
       downloadBtn.disabled = mergedRows.length === 0;
     } catch (e) {
@@ -218,9 +295,22 @@
     }
   });
 
+  columnPicker.querySelectorAll('.col-toggle').forEach(cb => {
+    cb.addEventListener('change', () => {
+      if (mergedRows) renderTable(mergedRows, getSelectedColumns());
+    });
+  });
+
+  setupColumnDragDrop();
+
   downloadBtn.addEventListener('click', () => {
     if (!mergedRows || mergedRows.length === 0) return;
-    const csv = rowsToCsv(mergedRows);
+    const columns = getSelectedColumns();
+    if (columns.length === 0) {
+      errorMsg.textContent = 'Select at least one column to export.';
+      return;
+    }
+    const csv = rowsToCsv(mergedRows, columns);
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
