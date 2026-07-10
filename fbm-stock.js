@@ -9,6 +9,7 @@
   const jumpNavToggle = document.getElementById('jumpNavToggle');
   const jumpNavOverlay = document.getElementById('jumpNavOverlay');
   const showOosOnly = document.getElementById('showOosOnly');
+  const hideNoVariant = document.getElementById('hideNoVariant');
   const filterStockRange = document.getElementById('filterStockRange');
   const stockRangeMin = document.getElementById('stockRangeMin');
   const stockRangeMax = document.getElementById('stockRangeMax');
@@ -92,9 +93,7 @@
         return description.slice(idx, idx + word.length);
       }
     }
-    // fallback: last comma-separated token
-    const parts = description.split(',').map(p => p.trim()).filter(Boolean);
-    return parts.length > 0 ? parts[parts.length - 1] : '';
+    return '';
   }
 
   // ---------- build listing records ----------
@@ -161,7 +160,7 @@
           return a.description.localeCompare(b.description);
         });
       return { key, name: key, rows: groupRows };
-    }).sort((a, b) => b.rows.length - a.rows.length);
+    });
   }
 
   function slugify(text) {
@@ -240,19 +239,24 @@
     if (!allGroups) return [];
     const oosOn = showOosOnly.checked;
     const rangeOn = filterStockRange.checked;
+    const noVariantOn = hideNoVariant.checked;
     const min = stockRangeMin.value === '' ? -Infinity : parseNumber(stockRangeMin.value);
     const max = stockRangeMax.value === '' ? Infinity : parseNumber(stockRangeMax.value);
-    if (!oosOn && !rangeOn) return allGroups;
+    if (!oosOn && !rangeOn && !noVariantOn) {
+      return allGroups.slice().sort((a, b) => b.rows.length - a.rows.length);
+    }
     return allGroups
       .map(g => ({
         key: g.key,
         name: g.name,
         rows: g.rows.filter(r =>
           (!oosOn || r.isOos) &&
-          (!rangeOn || (r.stock >= min && r.stock <= max))
+          (!rangeOn || (r.stock >= min && r.stock <= max)) &&
+          (!noVariantOn || !!r.description)
         )
       }))
-      .filter(g => g.rows.length > 0);
+      .filter(g => g.rows.length > 0)
+      .sort((a, b) => b.rows.length - a.rows.length);
   }
 
   function renderGroups(groups) {
@@ -395,6 +399,6 @@
     updateSummary(displayGroups);
   }
 
-  [showOosOnly, filterStockRange].forEach(cb => cb.addEventListener('change', applyFilters));
+  [showOosOnly, filterStockRange, hideNoVariant].forEach(cb => cb.addEventListener('change', applyFilters));
   [stockRangeMin, stockRangeMax].forEach(input => input.addEventListener('input', applyFilters));
 })();

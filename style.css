@@ -687,12 +687,7 @@ td.restock-positive {
 }
 
 tr.row-oos td {
-  background: #fff3cd;
   box-shadow: inset 3px 0 0 #e8a317;
-}
-
-tr.row-oos:hover td {
-  background: #ffe8a3;
 }
 
 td.oos-label {
@@ -700,10 +695,3 @@ td.oos-label {
   font-weight: 700;
 }
 
-tr.color-alt td {
-  background: #f8f9fb;
-}
-
-tr.color-alt.row-oos td {
-  background: #fbe9c6;
-}
