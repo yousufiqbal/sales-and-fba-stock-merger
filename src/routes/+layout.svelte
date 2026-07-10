@@ -16,7 +16,7 @@
 	}
 
 	const links = [
-		{ href: '/', label: 'Restock Report' },
+		{ href: '/restock-report', label: 'Restock Report' },
 		{ href: '/fbm-stock', label: 'FBM Stock Check' }
 	];
 
