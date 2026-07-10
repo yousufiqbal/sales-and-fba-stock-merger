@@ -15,6 +15,8 @@
 		type RestockGroup,
 		type RestockRow
 	} from '$lib/restock';
+	import UploadCard from '$lib/components/UploadCard.svelte';
+	import JumpNav from '$lib/components/JumpNav.svelte';
 
 	const STORAGE_KEY = 'fbaRestockistSettings';
 	const DEFAULT_COLUMN_ORDER: ColumnKey[] = [
@@ -68,7 +70,6 @@
 	let errorMsg = $state('');
 	let coverageDaysAtMerge = $state(0);
 	let reportPeriodDaysAtMerge = $state(0);
-	let jumpNavOpen = $state(false);
 
 	// ---- derived ----
 	const coverageDays = $derived(
@@ -130,18 +131,14 @@
 	interface NavEntry {
 		anchorId: string;
 		label: string;
-		group: RestockGroup;
 	}
 
 	const navEntries = $derived.by((): NavEntry[] =>
 		displayGroups.map((group) => ({
 			anchorId: `group-${slugify(group.parentAsin)}`,
-			label: group.rows[0]?.title || group.parentAsin,
-			group
+			label: group.rows[0]?.title || group.parentAsin
 		}))
 	);
-
-	const jumpNavShown = $derived(jumpNavOpen && navEntries.length > 0);
 
 	// ---- persistence ----
 	function saveSettings() {
@@ -373,16 +370,20 @@
 </div>
 
 <div class="upload-grid">
-	<div class="upload-card">
-		<label for="businessReportInput">Business Report (.csv)</label>
-		<input type="file" id="businessReportInput" accept=".csv" onchange={onBusinessReportChange} />
-		<span class="file-status">{businessReportName}</span>
-	</div>
-	<div class="upload-card">
-		<label for="inventoryInput">FBA Inventory (.txt)</label>
-		<input type="file" id="inventoryInput" accept=".txt" onchange={onInventoryChange} />
-		<span class="file-status">{inventoryName}</span>
-	</div>
+	<UploadCard
+		id="businessReportInput"
+		label="Business Report (.csv)"
+		accept=".csv"
+		fileName={businessReportName}
+		onchange={onBusinessReportChange}
+	/>
+	<UploadCard
+		id="inventoryInput"
+		label="FBA Inventory (.txt)"
+		accept=".txt"
+		fileName={inventoryName}
+		onchange={onInventoryChange}
+	/>
 </div>
 
 <div class="column-picker">
@@ -480,31 +481,5 @@
 		{/each}
 	</div>
 
-	<nav class="group-nav" class:open={jumpNavShown}>
-		{#if navEntries.length > 0}
-			<div class="group-nav-title">Jump to product</div>
-			{#each navEntries as entry, idx (entry.anchorId)}
-				<a href={`#${entry.anchorId}`} title={entry.label} onclick={() => (jumpNavOpen = false)}>
-					{idx + 1}. {entry.label}
-				</a>
-			{/each}
-		{/if}
-	</nav>
+	<JumpNav entries={navEntries} />
 </div>
-
-<div
-	class="jump-nav-overlay"
-	class:open={jumpNavOpen}
-	onclick={() => (jumpNavOpen = false)}
-	role="presentation"
-></div>
-<button
-	class="jump-nav-toggle"
-	class:visible={navEntries.length > 0}
-	class:open={jumpNavShown}
-	type="button"
-	onclick={() => (jumpNavOpen = !jumpNavOpen)}
->
-	<span>Jump to product</span>
-	<span class="jump-nav-toggle-arrow">▲</span>
-</button>

@@ -7,12 +7,13 @@
 		countOos,
 		type FbmGroup
 	} from '$lib/fbmStock';
+	import UploadCard from '$lib/components/UploadCard.svelte';
+	import JumpNav from '$lib/components/JumpNav.svelte';
 
 	let fbmInventoryText: string | null = $state(null);
 	let fbmInventoryName = $state('No file selected');
 	let errorMsg = $state('');
 	let allGroups: FbmGroup[] | null = $state(null);
-	let jumpNavOpen = $state(false);
 
 	let showOosOnly = $state(false);
 	let filterStockRange = $state(false);
@@ -73,8 +74,6 @@
 		}))
 	);
 
-	const jumpNavShown = $derived(jumpNavOpen && navEntries.length > 0);
-
 	function onFbmInventoryChange(e: Event) {
 		const input = e.target as HTMLInputElement;
 		const file = input.files?.[0];
@@ -110,16 +109,13 @@
 <p class="subtitle">Upload your FBM Inventory / Listings Report to find out-of-stock listings</p>
 
 <div class="upload-grid upload-grid-single">
-	<div class="upload-card">
-		<label for="fbmInventoryInput">FBM Inventory / Listings Report (.txt)</label>
-		<input
-			type="file"
-			id="fbmInventoryInput"
-			accept=".txt"
-			onchange={onFbmInventoryChange}
-		/>
-		<span class="file-status">{fbmInventoryName}</span>
-	</div>
+	<UploadCard
+		id="fbmInventoryInput"
+		label="FBM Inventory / Listings Report (.txt)"
+		accept=".txt"
+		fileName={fbmInventoryName}
+		onchange={onFbmInventoryChange}
+	/>
 </div>
 
 <div class="filter-row">
@@ -195,31 +191,5 @@
 		{/each}
 	</div>
 
-	<nav class="group-nav" class:open={jumpNavShown}>
-		{#if navEntries.length > 0}
-			<div class="group-nav-title">Jump to product</div>
-			{#each navEntries as entry, idx (entry.anchorId)}
-				<a href={`#${entry.anchorId}`} title={entry.label} onclick={() => (jumpNavOpen = false)}>
-					{idx + 1}. {entry.label}
-				</a>
-			{/each}
-		{/if}
-	</nav>
+	<JumpNav entries={navEntries} />
 </div>
-
-<div
-	class="jump-nav-overlay"
-	class:open={jumpNavShown}
-	onclick={() => (jumpNavOpen = false)}
-	role="presentation"
-></div>
-<button
-	class="jump-nav-toggle"
-	class:visible={navEntries.length > 0}
-	class:open={jumpNavShown}
-	type="button"
-	onclick={() => (jumpNavOpen = !jumpNavOpen)}
->
-	<span>Jump to product</span>
-	<span class="jump-nav-toggle-arrow">▲</span>
-</button>
